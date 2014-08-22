@@ -1,0 +1,197 @@
+---
+output:
+  html_document:
+    keep_md: yes
+---
+**Simulation with the Exponential Distribution**  
+**Statistical Inference, Coursera**  
+**Class Project #2, August 2014**  
+
+Using the [ToothGrowth][1] dataset, this paper explores tooth growth for six sets of ten guinea pigs.  The six sets are differentiated by the type of supplement received (orange juice (OJ) or ascorbic acid (VC)) and the dose in milligrams received (0.5, 1, or 2) of the supplement.  
+```{r load.packages, echo=FALSE, warning=FALSE}
+library(datasets)
+library(ggplot2)
+library(plyr)
+# library(xtable)
+library(grid)
+library(gridExtra)
+library(knitr)
+library(car)
+```
+
+```{r load}
+# load data, change dose to factor with 3 levels
+tg <- ToothGrowth
+tg$dose <- as.factor(tg$dose) # convert dose to factor
+```
+
+The measurements of central tendancy (mean and standard devation) of tooth growth is calcuatled by supplement (supp), dosage (dose), and supp-dose pairs.  The code is shown for the dose-supp pair, and the other code is hidden in order to save space. 
+```{r, eval = FALSE}
+plyr::ddply(tg, .(dose, supp), summarize,
+      mean = round(mean(len),2), sd = round(sd(len),2))
+```
+
+```{r test, results='asis', echo=FALSE, warning=FALSE}
+# get mean and sd by dose/supp, supp, and dose
+t1 <- plyr::ddply(tg, .(dose, supp), summarize,
+      mean = round(mean(len),2),
+      sd = round(sd(len),2))
+t2 <- plyr::ddply(tg, .(supp), summarize,
+      mean = round(mean(len),2),
+      sd = round(sd(len),2))
+t3 <- plyr::ddply(tg, .(dose), summarize,
+      mean = round(mean(len),2),
+      sd = round(sd(len),2))
+# display tables in single row, three columns
+cat("<table class='container'><tr>")
+cat("<td>")
+kable(t2, format = "html")
+cat("</td>")
+cat("<td>")
+kable(t3, format = "html")
+cat("</td>")
+cat("<td>")
+kable(t1, format = "html")
+cat("</td>")
+cat("</tr></table>")
+```
+
+These boxplots present a visual representation of the spread of data suggesting
+- Orange juice (OJ) promotes longer tooth growth than ascorbic acid (VC) overall.  
+- Increased doseage amounts of either supplement promotes longer tooth growth.  
+- Orange juice promotes longer tooth growth for doses at 0.5 and 1.0 mg.  
+- Orange juice and ascorbic acid have similar effects on tooth growth at doses of 2.0 mg.  
+
+However, independent samples t-tests on these three categories (dose only, supplement along, dose-supplement pair) will be run to determine if these differences are significant or if the difference is simply what would be expected to due chance.  If the differences are significant, then the findings can be applied to the general population of gineau pigs.  
+
+```{r plots, fig.height=2.5, fig.width=10, echo = FALSE}
+p1 <- ggplot(tg, aes(supp, len, colour = supp))
+p1 <- p1 + geom_boxplot() + facet_grid(. ~ dose) + xlab("Supplement by Dose") + ylab("Tooth Length")
+p2 <- ggplot(tg, aes(supp, len))
+p2 <- p2 + geom_boxplot() + xlab("Supplment") + ylab("Tooth Length")
+p3 <- ggplot(tg, aes(dose, len))
+p3 <- p3 + geom_boxplot() + xlab("Doseage Amount (mg)") + ylab("Tooth Length")
+# disply three plots in one row, making 3rd plot twice as wide as other two
+gridExtra::grid.arrange(p2, p3, p1, ncol = 3, widths = c(1,1,2))
+```
+
+For the **supp** t-test, the data is subsetted into 30 cases each of OJ or VC.  
+For the **dose** t-tests, the data is subsetted into 20 cases each of 0.5, 1.0, and 2.0 mg.  
+For the **dose-supp** t-tests, data is subsetted into 10 cases each of the six possible combinations (0.5OJ, 0.5VC, 1.0OJ, 1.0VC, 2.0OJ, 2.0VC).  
+Here is code for one of the subsets.  All other code is suppressed to save space.
+
+```{r subsetting, echo = TRUE, eval=FALSE}
+# oj vs. vc
+supp.oj <- tg$len[tg$supp == "OJ"]; supp.vc <- tg$len[tg$supp == "VC"]
+```
+
+```{r subset.hidden, eval = TRUE, echo = FALSE}
+# supplement type
+supp.oj <- tg$len[tg$supp == "OJ"]
+supp.vc <- tg$len[tg$supp == "VC"]
+# dose comparison
+dose.0.5mg <- tg$len[tg$dose == "0.5"]
+dose.1mg <- tg$len[tg$dose == "1"]
+dose.2mg <- tg$len[tg$dose == "2"]
+# does and supp comparison
+d.0.5mg.and.supp.oj <- tg$len[tg$dose == "0.5" & tg$supp == "OJ"]
+d.0.5mg.and.supp.vc <- tg$len[tg$dose == "0.5" & tg$supp == "VC"]
+d.1mg.and.supp.oj <- tg$len[tg$dose == "1" & tg$supp == "OJ"]
+d.1mg.and.supp.vc <- tg$len[tg$dose == "1" & tg$supp == "VC"]
+d.2mg.and.supp.oj <- tg$len[tg$dose == "2" & tg$supp == "OJ"]
+d.2mg.and.supp.vc <- tg$len[tg$dose == "2" & tg$supp == "VC"]
+```
+
+For each t-test, the null hypothesis is that the mean tooth length for each group pairing is equal.  Using the supplement pair as an example, the null hypothesis is $H_0$: mean tooth length of OJ = mean tooth length of VC and $H_A$: the means are not equal.  $H_0$ is rejected at the 95% confidence interval when the p-value < 0.05 and the confidence interval range does not include zero as a value.  
+
+Prior to running the independent t-test, the assumption of homogeneity of variance was testing using Levene's Test.  Since the p-value for Levene's Test was greater than 0.05, the independent t-test can proceed assuming equal variances among groups (i.e. var.equal = TRUE).  The code for Levene's Test follows this example.
+
+```{r levene.sample, eval=FALSE, echo=TRUE}
+car::leveneTest(len ~ supp, data = tg)
+```
+
+```{r levene, results='hide', eval=FALSE, echo=FALSE}
+car::leveneTest(len ~ supp, data = tg)[3]
+car::leveneTest(len ~ dose, data = tg)[3]
+car::leveneTest(len ~ dose*supp, data = tg)[3]
+```
+
+Again, using the supplement pair as an example, each two sample indepent groups t-test is calculated following this code structure.  
+
+```{r t.test.example, eval=FALSE, echo=TRUE}
+ttest.oj.vc <- t.test(supp.oj, supp.vc, paired = FALSE, var.equal = TRUE)
+```
+
+This table summarizes the results of the seven t-tests.  Five of the seven tests returned significant p-values.  
+```{r t.tests, echo = FALSE, results='asis'}
+## supp
+# run t-test
+x <- t.test(supp.oj, supp.vc, paired = FALSE, var.equal = TRUE)
+# put in dataframe
+df.t.tests <- data.frame(category = "Supplement", pair = x$data.name, lb = x$conf.int[1], ub = x$conf.int[2], statistic = x$statistic, pval = x$p.value, df = x$parameter)
+
+#dose
+# run t-test
+x <- t.test(dose.0.5mg, dose.1mg, paired = FALSE, var.equal = TRUE)
+# row bind to dataframe
+df.t.tests <- rbind(df.t.tests, data.frame(category = "Doseage", pair = x$data.name, lb = x$conf.int[1], ub =  x$conf.int[2], statistic = x$statistic, pval = x$p.value, df = x$parameter))
+
+x <- t.test(dose.0.5mg, dose.2mg, paired = FALSE, var.equal = TRUE)
+df.t.tests <- rbind(df.t.tests, data.frame(category = "Doseage", pair = x$data.name, lb = x$conf.int[1], ub =  x$conf.int[2], statistic = x$statistic, pval = x$p.value, df = x$parameter))
+
+x <- t.test(dose.1mg, dose.2mg, paired = FALSE, var.equal = TRUE)
+df.t.tests <- rbind(df.t.tests, data.frame(category = "Doseage", pair = x$data.name, lb = x$conf.int[1], ub =  x$conf.int[2], statistic = x$statistic, pval = x$p.value, df = x$parameter))
+
+# dose and supplement
+x <- t.test(d.0.5mg.and.supp.oj, d.0.5mg.and.supp.vc, paired = FALSE, var.equal = TRUE)
+df.t.tests <- rbind(df.t.tests, data.frame(category = "Dose + Supp", pair = x$data.name, lb = x$conf.int[1], ub =  x$conf.int[2], statistic = x$statistic, pval = x$p.value, df = x$parameter))
+
+x <- t.test(d.1mg.and.supp.oj, d.1mg.and.supp.vc, paired = FALSE, var.equal = TRUE)
+df.t.tests <- rbind(df.t.tests, data.frame(category = "Dose + Supp", pair = x$data.name, lb = x$conf.int[1], ub =  x$conf.int[2], statistic = x$statistic, pval = x$p.value, df = x$parameter))
+
+x <- t.test(d.2mg.and.supp.oj, d.2mg.and.supp.vc, paired = FALSE, var.equal = TRUE)
+df.t.tests <- rbind(df.t.tests, data.frame(category = "Dose + Supp", pair = x$data.name, lb = x$conf.int[1], ub =  x$conf.int[2], statistic = x$statistic, pval = x$p.value, df = x$parameter))
+
+# rounding of values
+df.t.tests[,3:5] <- round(df.t.tests[,3:5],2)
+df.t.tests$pval <- round(df.t.tests$pval,3)
+# add column with value = TRUE if zero is included in confidence interval
+df.t.tests$CI.Includes.Zero <- df.t.tests$lb < 0 & df.t.tests$ub > 0
+# rename columns
+names(df.t.tests)[1:6] <- c("Category", "Pairing", "CI.Low", "CI.Upper", "t", "p-val")
+
+#return table
+kable(df.t.tests, format = "markdown", row.names = FALSE)
+```
+
+#### Summary of Findings  
+- There is no overall difference in tooth growth for supplement type (orange juice vs. ascorbic acid)  
+- There is signficant difference in tooth growth in all comparisons of doseage amounts, regardless of the supplmement type.  Tooth growth increases with an increase in doseage amount.  
+- There is signficant difference in tooth growth between supplement type dosed at either 0.5 mg or 1.0 mg.  Orange juice results in longer tooth growth than ascorbic acid at these doses.  
+- Tooth growth is expected to be similar when either supplement is dosed at 2.0 mg.
+
+#### Detailed Fidings  
+
+**Findings for Supplement Comparison**  
+These data do not provide evidence that there is a signficant difference in the tooth growth in gineau pigs receiving orange juice (mean = `r round(mean(supp.oj),2)`, sd = `r round(sd(supp.oj),2)`) from those receiving ascorbic acid (mean = `r round(mean(supp.vc),2)`, sd = `r round(sd(supp.vc,2),2)`), t(`r df.t.tests[df.t.tests$Category == "Supplement","df"]`) = `r df.t.tests[df.t.tests$Category == "Supplement", "t"]`, p  `r if(df.t.tests[df.t.tests$Category == "Supplement", "p-val"] < 0.005 ) {"< 0.005"} else {paste("=",df.t.tests[df.t.tests$Category == "Supplement", "p-val"])}`.  Even though one might surmise from the boxplot that there is a noticable difference in these two supplements, this difference can be accounted for what would occur by chance.  
+
+**Findings for Doseage Comparison**  
+**0.5 mg vs. 1.0 mg**: These data provide convincing evidence that tooth growth in gineau pigs receiving 0.5 mg of supplement (mean = `r round(mean(dose.0.5mg),2)`, sd = `r round(sd(dose.0.5mg),2)`) is shorter than gineau pigs receiving 1.0 mg of supplement (mean = `r round(mean(dose.1mg),2)`, sd = `r round(sd(dose.1mg),2)`), t(`r df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.1mg","df"]`) = `r df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.1mg","t"]`, p `r if(df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.1mg","p-val"] < 0.005 ) { "<  0.005"} else {paste("=",df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.1mg","p-val"])}`.  The data suggests with 95% confidence that the tooth growth in gineau pigs receiving 0.5 mg of supplement will be between `r abs(df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.1mg","CI.Upper"])` and `r abs(df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.1mg","CI.Low"])` units shorter than gineau pigs receiving 1.0 mg of supplement.
+
+**0.5 mg vs. 2.0 mg**: These data provide convincing evidence that tooth growth in gineau pigs receiving 0.5 mg of supplement (mean = `r round(mean(dose.0.5mg),2)`, sd = `r round(sd(dose.0.5mg),2)`) is shorter than gineau pigs receiving 2.0 mg of supplement (mean = `r round(mean(dose.2mg),2)`, sd = `r round(sd(dose.2mg),2)`), t(`r df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.2mg","df"]`) = `r df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.2mg","t"]`,  p `r if(df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.2mg","p-val"] < 0.005 ) { "<  0.005"} else {paste("=",df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.2mg","p-val"])}`.  The data suggests with 95% confidence that the tooth growth in gineau pigs receiving 0.5 mg of supplement will be between `r abs(df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.2mg","CI.Upper"])` and `r abs(df.t.tests[df.t.tests$Pairing == "dose.0.5mg and dose.2mg","CI.Low"])` units shorter than gineau pigs receiving 2.0 mg of supplement.
+
+**1.0 mg vs. 2.0 mg**: These data provide convincing evidence that tooth growth in gineau pigs receiving 1.0 mg of supplement (mean = `r round(mean(dose.1mg),2)`, sd = `r round(sd(dose.1mg),2)`) is shorter than gineau pigs receiving 2.0 mg of supplement (mean = `r round(mean(dose.2mg),2)`, sd = `r round(sd(dose.2mg),2)`), t(`r df.t.tests[df.t.tests$Pairing == "dose.1mg and dose.2mg","df"]`) = `r df.t.tests[df.t.tests$Pairing == "dose.1mg and dose.2mg","t"]`, p `r if(df.t.tests[df.t.tests$Pairing == "dose.1mg and dose.2mg","p-val"] < 0.005 ) { "<  0.005"} else {paste("=",df.t.tests[df.t.tests$Pairing == "dose.1mg and dose.2mg","p-val"])}`.  The data suggests with 95% confidence that the tooth growth in gineau pigs receiving 1.0 mg of supplement will be between `r abs(df.t.tests[df.t.tests$Pairing == "dose.1mg and dose.2mg","CI.Upper"])` and `r abs(df.t.tests[df.t.tests$Pairing == "dose.1mg and dose.2mg","CI.Low"])` units shorter than gineau pigs receiving 2.0 mg of supplement.  
+
+**Finding for Doseage/Supplement Pairs**  
+**OJ vs. VC, at 0.5 mg**: These data provide convincing evidence that tooth growth in gineau pigs receiving 0.5 mg of orange juice (mean = `r round(mean(d.0.5mg.and.supp.oj),2)`, sd = `r round(sd(d.0.5mg.and.supp.oj),2)`) is longer than gineau pigs receiving 0.5 mg of ascorbic acid (mean = `r round(mean(d.0.5mg.and.supp.vc),2)`, sd = `r round(sd(d.0.5mg.and.supp.vc),2)`), t(`r df.t.tests[df.t.tests$Pairing == "d.0.5mg.and.supp.oj and d.0.5mg.and.supp.vc","df"]`) = `r df.t.tests[df.t.tests$Pairing == "d.0.5mg.and.supp.oj and d.0.5mg.and.supp.vc","t"]`, p `r if(df.t.tests[df.t.tests$Pairing == "d.0.5mg.and.supp.oj and d.0.5mg.and.supp.vc","p-val"] < 0.005) { "< 0.005"} else {paste("=",df.t.tests[df.t.tests$Pairing == "d.0.5mg.and.supp.oj and d.0.5mg.and.supp.vc","p-val"])}`.  The data suggests with 95% confidence that the tooth growth in gineau pigs receiving 0.5 mg of orange juice will be between `r abs(df.t.tests[df.t.tests$Pairing == "d.0.5mg.and.supp.oj and d.0.5mg.and.supp.vc","CI.Low"])` and `r abs(df.t.tests[df.t.tests$Pairing == "d.0.5mg.and.supp.oj and d.0.5mg.and.supp.vc","CI.Upper"])` units longer than gineau pigs receiving 0.5 mg of ascorbic acid.  
+
+**OJ vs. VC, at 1.0 mg**: These data provide convincing evidence that tooth growth in gineau pigs receiving 1.0 mg of orange juice (mean = `r round(mean(d.1mg.and.supp.oj),2)`, sd = `r round(sd(d.1mg.and.supp.oj),2)`) is longer than gineau pigs receiving 1.0 mg of ascorbic acid (mean = `r round(mean(d.1mg.and.supp.vc),2)`, sd = `r round(sd(d.1mg.and.supp.vc),2)`), t(`r df.t.tests[df.t.tests$Pairing == "d.1mg.and.supp.oj and d.1mg.and.supp.vc","df"]`) = `r df.t.tests[df.t.tests$Pairing == "d.1mg.and.supp.oj and d.1mg.and.supp.vc","t"]`, p `r if(df.t.tests[df.t.tests$Pairing == "d.1mg.and.supp.oj and d.1mg.and.supp.vc","p-val"] < 0.005) { "< 0.005"} else {paste("=",df.t.tests[df.t.tests$Pairing == "d.1mg.and.supp.oj and d.1mg.and.supp.vc","p-val"])}`.  The data suggests with 95% confidence that the tooth growth in gineau pigs receiving 1.0 mg of orange juice will be between `r abs(df.t.tests[df.t.tests$Pairing == "d.1mg.and.supp.oj and d.1mg.and.supp.vc","CI.Low"])` and `r abs(df.t.tests[df.t.tests$Pairing == "d.1mg.and.supp.oj and d.1mg.and.supp.vc","CI.Upper"])` units longer than gineau pigs receiving 1.0 mg of ascorbic acid.  
+
+**OJ vs. VC, at 2.0 mg**: These data do not provide evidence that there is a signficant difference in the tooth growth in gineau pigs receiving 2.0 mg of orange juice (mean = `r round(mean(d.2mg.and.supp.oj),2)`, sd = `r round(sd(d.2mg.and.supp.oj),2)`) is longer than gineau pigs receiving 2.0 mg of ascorbic acid (mean = `r round(mean(d.2mg.and.supp.vc),2)`, sd = `r round(sd(d.2mg.and.supp.vc),2)`), t(`r df.t.tests[df.t.tests$Pairing == "d.2mg.and.supp.oj and d.2mg.and.supp.vc","df"]`) = `r df.t.tests[df.t.tests$Pairing == "d.2mg.and.supp.oj and d.2mg.and.supp.vc","t"]`, p `r if(df.t.tests[df.t.tests$Pairing == "d.2mg.and.supp.oj and d.2mg.and.supp.vc","p-val"] < 0.005) { "< 0.005"} else {paste("=",df.t.tests[df.t.tests$Pairing == "d.2mg.and.supp.oj and d.2mg.and.supp.vc","p-val"])}`.
+
+#### Session Info  
+```{r sessioninfo, echo = FALSE}
+sessionInfo()
+```
+
+[1]: http://stat.ethz.ch/R-manual/R-devel/library/datasets/html/ToothGrowth.html
