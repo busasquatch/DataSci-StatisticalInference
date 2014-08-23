@@ -27,12 +27,12 @@ The mean of the simulations is centered at 5.026.  The theoretical mean of the e
 The mean variance of the simulations is 25.0643.  The theoretical variance of the exponential distriubtion is $\frac{1}{\lambda ^2}$, and in this case where $\lambda = 0.2$ the theoretical variance is $\frac{1}{.2^2} = \frac{1}{0.04} = 25$.  The difference between the simulated variance and the theorectical variance is 0.0643.
 
 **3. Show that the distribution is approximately normal.**  
-This density plot demonstrates the approximate normal distribution of the mean. The normal distribution with mean = 5 and sd = 1 is overlaid to compare the simulation distribution to the expected exponential distribution.  The distribution of the sample means is approximately normal.  
+This density plot demonstrates the approximate normal distribution of the mean. The normal distribution with mean = $\frac{1}{\lambda}$ and sd = $\frac{1/\lambda}{\sqrt{n}}$ is overlaid to compare the simulation distribution to the expected exponential distribution.  The distribution of the sample means is approximately normal.  
 
 ```r
-hist(my.means, prob = TRUE, main = "Simulated Means"
-     , xlab = "mean")
-curve(dnorm(x, mean=5, sd=1), add=TRUE, col="red", lwd=5)
+hist(my.means, prob = TRUE, main = "Simulated Means", xlab = "mean",
+     xlim = c(2,8), ylim = c(0,0.6), col = "gray", cex.main = 0.75)
+curve(dnorm(x, mean=1/lambda, sd=(1/lambda) / sqrt(n)), add=TRUE, col="red", lwd=3)
 ```
 
 ![plot of chunk analysis](./project1_files/figure-html/analysis.png) 
